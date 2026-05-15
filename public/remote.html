@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>MaydayOS | MPU Relay</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { background: #071114; color: #55d6c2; font-family: monospace; text-align: center; padding: 50px; }
+        button { background: #55d6c2; color: #071114; border: none; padding: 20px; font-weight: bold; border-radius: 8px; cursor: pointer;}
+        .data { margin-top: 20px; font-size: 1.2rem; }
+    </style>
+</head>
+<body>
+    <h1>REMOTE MPU</h1>
+    <button id="start">INITIALIZE SENSORS</button>
+    <div class="data" id="display">Status: Standby</div>
+    <div id="model3d-container" style="width: 100%; height: 70vh; margin-top: 20px;"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/airplane3d.js"></script>
+    <script>
+        const socket = io();
+        const btn = document.getElementById('start');
+        
+        // Initialize 3D model
+        const airplane = window.init3DAircraft(document.getElementById('model3d-container'));
+
+        btn.onclick = async () => {
+            // Permission for iOS 13+
+            if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                try {
+                    const permission = await DeviceOrientationEvent.requestPermission();
+                    if (permission !== 'granted') return alert("Permission Denied");
+                } catch(e) {
+                    return alert("Permission Denied or Error");
+                }
+            }
+
+            btn.style.display = 'none';
+
+            let initialYaw = null;
+            let initFrames = 0;
+
+            // 1. Capture Tilt (Gyroscope)
+            window.addEventListener('deviceorientation', (e) => {
+                if (initialYaw === null && e.alpha !== null) {
+                    initFrames++;
+                    if (initFrames > 15) { // Wait for sensor to stabilize
+                        initialYaw = e.alpha;
+                    }
+                }
+                
+                let relativeYaw = (e.alpha !== null && initialYaw !== null) ? (e.alpha - initialYaw) : 0;
+
+                const imu = {
+                    pitch: Math.round(e.beta || 0), // X-axis
+                    roll: Math.round(e.gamma || 0), // Y-axis
+                    yaw: Math.round(relativeYaw)    // Z-axis
+                };
+                socket.emit('phone-imu', imu);
+                document.getElementById('display').innerHTML = `P: ${imu.pitch}&deg; | R: ${imu.roll}&deg; | Y: ${imu.yaw}&deg;`;
+                if(airplane) airplane.updateAttitude(imu.pitch, imu.roll, imu.yaw);
+            });
+
+            // 2. Capture Acceleration
+            window.addEventListener('devicemotion', (e) => {
+                const accel = e.accelerationIncludingGravity;
+                if(accel) {
+                    socket.emit('phone-accel', {
+                        x: accel.x ? accel.x.toFixed(2) : 0,
+                        y: accel.y ? accel.y.toFixed(2) : 0,
+                        z: accel.z ? accel.z.toFixed(2) : 0
+                    });
+                }
+            });
+        };
+    </script>
+</body>
+</html>

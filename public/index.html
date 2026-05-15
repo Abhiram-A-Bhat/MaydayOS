@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MaydayOS | Adverse Flight Survival Demo</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cesium.com/downloads/cesiumjs/releases/1.119/Build/Cesium/Widgets/widgets.css" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <section id="homePage" class="home-page">
+      <div class="home-shell">
+        <p class="eyebrow">MaydayOS flight planner</p>
+        <h1>Plan an adaptive flight simulation</h1>
+        <div class="booking-grid">
+          <label>From
+            <input id="fromAirport" list="airportOptions" placeholder="Tokyo Haneda, HND" />
+          </label>
+          <label>To
+            <input id="toAirport" list="airportOptions" placeholder="San Francisco, SFO" />
+          </label>
+          <label>Fuel %
+            <input id="fuelInput" type="number" min="40" max="100" value="90" />
+          </label>
+          <label>Passengers
+            <input id="passengerInput" type="number" min="0" max="300" value="220" />
+          </label>
+          <label>Cargo kg
+            <input id="cargoInput" type="number" min="0" max="30000" step="500" value="12000" />
+          </label>
+          <button id="planFlight" class="primary" type="button">Start Realistic Simulation</button>
+        </div>
+        <datalist id="airportOptions"></datalist>
+        <div id="preflightStatus" class="preflight-status">Loading worldwide airport database...</div>
+      </div>
+    </section>
+
+    <main class="app">
+      <section class="map-stage">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Navigate, Adapt & Survive</p>
+            <h1>MaydayOS</h1>
+          </div>
+          <div class="status-strip">
+            <span id="flightSource">Flights: connecting</span>
+            <span id="shipSource">Ships: simulated</span>
+            <span id="simClock">00:00</span>
+          </div>
+        </header>
+        <div id="mapCanvas" class="leaflet-map" aria-label="Live aircraft emergency map"></div>
+        <canvas id="cycloneCanvas" class="cyclone-canvas" aria-hidden="true"></canvas>
+        <div id="warpTransition" class="warp-transition">
+          <div class="warp-ring"></div>
+          <div class="warp-copy">Switching to orbital Starlink localization</div>
+        </div>
+        <div class="map-hud">
+          <button id="resetView" type="button" title="Reset view">Reset</button>
+          <button id="toggleGlobe" type="button" title="Open Starlink globe">Starlink Globe</button>
+          <button id="downloadReport" type="button" title="Generate PDF report">PDF Report</button>
+          <span id="mapOverlayBadge" class="map-overlay-badge">Base map</span>
+        </div>
+        <div class="legend">
+          <span><i class="plane"></i> Aircraft</span>
+          <span><i class="airport"></i> Airports</span>
+          <span><i class="ship"></i> Ships</span>
+          <span><i class="storm"></i> Cyclone</span>
+          <span><i class="route"></i> AI route</span>
+        </div>
+      </section>
+
+      <aside class="side-panel">
+        <section class="panel-section selected-card">
+          <p class="eyebrow">Selected aircraft</p>
+          <h2 id="selectedTitle">Choose a flight</h2>
+          <div id="aircraftFacts" class="facts"></div>
+        </section>
+
+        <section class="panel-section">
+          <p class="eyebrow">Aircraft health digital twin</p>
+          <div id="healthGrid" class="health-grid"></div>
+        </section>
+
+        <section class="panel-section">
+          <p class="eyebrow">Adverse condition simulator</p>
+          <div class="scenario-grid">
+            <button class="scenario active" data-scenario="cyclone">Cyclone</button>
+            <button class="scenario active" data-scenario="mechanical">Mechanical</button>
+            <button class="scenario active" data-scenario="pilot">Pilot Failure</button>
+            <button class="scenario active" data-scenario="gps">GPS/ATC Loss</button>
+          </div>
+          <button id="startSimulation" class="primary" type="button" onclick="window.maydayStart?.(event)" onmousedown="window.maydayStart?.(event)">Start Emergency Simulation</button>
+          <button id="startStarlink" class="primary secondary-action" type="button">Starlink Constellation Triangulation</button>
+        </section>
+
+        <section class="panel-section">
+          <p class="eyebrow">Realistic survival flight sim</p>
+          <div class="sim-control-grid">
+            <button id="startFlightSim" class="overlay-btn" type="button">Start Realistic Simulation</button>
+            <button id="fastFlightSim" class="overlay-btn" type="button">Fast Forward</button>
+            <button id="placeCyclone" class="overlay-btn" type="button">Place Cyclone</button>
+            <button id="mechanicalFailure" class="overlay-btn" type="button">Mechanical Failure</button>
+            <button id="gpsAtcCutoff" class="overlay-btn" type="button">GPS/ATC Cutoff</button>
+            <button id="sosTelegram" class="overlay-btn sos-btn" type="button">SOS Telegram</button>
+            <button id="pilotDeviation" class="overlay-btn" type="button">Pilot Deviation</button>
+            <button id="elevenEmergency" class="overlay-btn" type="button">11 Emergency</button>
+            <button id="openGyroBtn" class="overlay-btn" type="button" style="border-color: #ff6600; color: #ff6600;">Open Gyro</button>
+          </div>
+          <button id="aiTakeover" class="primary secondary-action" type="button">Authorize Agentic AI Takeover</button>
+          <div id="flightSimStats" class="flight-sim-stats"></div>
+        </section>
+
+        <section class="panel-section">
+          <p class="eyebrow">2D map overlays</p>
+          <div class="overlay-grid">
+            <button id="terrainToggle" class="overlay-btn" type="button">Terrain</button>
+            <button class="overlay-btn weather-option" data-rain-frame="0" type="button">Radar Live</button>
+            <button class="overlay-btn weather-option" data-rain-frame="1" type="button">Radar -10m</button>
+            <button class="overlay-btn weather-option" data-rain-frame="2" type="button">Radar -20m</button>
+            <button class="overlay-btn weather-option" data-rain-frame="3" type="button">Radar -30m</button>
+            <button class="overlay-btn weather-option" data-rain-frame="6" type="button">Radar -60m</button>
+          </div>
+          <div class="cyclone-controls">
+            <button id="cycloneReplay" class="overlay-btn" type="button">Japan Cyclone Sim</button>
+            <button id="cycloneSlower" class="overlay-btn icon-btn" type="button" title="Slow cyclone simulation">-</button>
+            <span id="cycloneSpeedLabel">1x</span>
+            <button id="cycloneFaster" class="overlay-btn icon-btn" type="button" title="Speed up cyclone simulation">+</button>
+          </div>
+          <div id="overlayStatus" class="overlay-status">RainViewer radar overlays ready.</div>
+        </section>
+
+        <section class="panel-section">
+          <p class="eyebrow">AI emergency decision engine</p>
+          <div id="decisionLog" class="log"></div>
+        </section>
+
+        <section class="panel-section">
+          <p class="eyebrow">Localization calculations</p>
+          <div id="calcPanel" class="calc-panel"></div>
+        </section>
+
+        <section class="panel-section">
+          <p class="eyebrow">Aircraft health digital twin</p>
+          <div id="healthGrid" class="health-grid"></div>
+        </section>
+      </aside>
+    </main>
+
+    <section id="globeOverlay" class="globe-overlay" aria-hidden="true">
+      <div class="globe-shell">
+        <div class="globe-head">
+          <div>
+            <p class="eyebrow">Starlink fallback localization</p>
+            <h2>Orbital triangulation view</h2>
+          </div>
+          <button id="closeGlobe" type="button" title="Close globe">Close</button>
+        </div>
+        <div class="globe-map-wrap">
+          <div id="globeCanvas" class="cesium-globe"></div>
+          <canvas id="globeViz"></canvas>
+        </div>
+        <div id="starlinkCalculations" class="starlink-calcs"></div>
+      </div>
+    </section>
+
+    <dialog id="gyroModal" style="background: #071114; border: 1px solid #333; border-radius: 12px; padding: 20px; width: 80%; max-width: 800px; color: #fff; box-shadow: 0 10px 30px rgba(0,0,0,0.8);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <h2 style="margin: 0; font-family: monospace; color: #55d6c2;">Live Remote Gyro 3D View</h2>
+        <button id="closeGyroBtn" style="background: none; border: none; color: #fff; cursor: pointer; font-size: 1.5rem;">&times;</button>
+      </div>
+      <div class="hardware-sim-bar">
+        <button id="hardwareSimToggle" class="overlay-btn" type="button">Hardware Simulation</button>
+        <button id="ultrasonicSimToggle" class="overlay-btn" type="button">Ultrasonic Sensor</button>
+        <button id="gyroAiTakeover" class="overlay-btn" type="button" disabled>Agentic AI Stabilize</button>
+        <button id="hardwareReset" class="overlay-btn" type="button">Reset</button>
+        <span id="hardwareSimStatus">Gyro monitor standby</span>
+      </div>
+      <div id="dashboard-model3d" style="width: 100%; height: 500px; border-radius: 8px; overflow: hidden; background: #000;"></div>
+    </dialog>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cesium.com/downloads/cesiumjs/releases/1.119/Build/Cesium/Cesium.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/airplane3d.js"></script>
+    <script src="/app.js"></script>
+  </body>
+</html>
